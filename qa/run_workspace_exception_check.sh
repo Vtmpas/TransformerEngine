@@ -26,6 +26,8 @@ export NVTE_FLASH_ATTN_V2=1 NVTE_FLASH_ATTN_V3=0 NVTE_FLASH_ATTN_V4=0
 export NVTE_USE_CUTLASS_GROUPED_GEMM=0 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 export NVTE_FRAMEWORK=pytorch NVTE_CUDA_ARCHS=90
 export NVTE_WITH_NCCL_EP=0 NVTE_WITH_CUBLASMP=0 NVTE_WITH_CUSOLVERMP=0 NVTE_WITH_CUTEDSL=0
+# Dependencies are supplied from the pinned offline cache below.
+export NVTE_SKIP_SUBMODULE_CHECKS_DURING_BUILD=1
 unset DX_PATCHES DX_INFER_DEP_OVERLAY DX_INFER_SOURCE_JIT_ONLY NVTE_DEBUG
 PY=$(command -v python)
 git rev-parse HEAD > "$TE_WS_OUTPUT/revision.txt"
@@ -46,7 +48,9 @@ printf '%s\n' "$baseline_status" > "$TE_WS_OUTPUT/baseline.exit"
 # Reuse the previously fetched dependency at the same submodule revision.
 # No package is installed into the environment.
 test -d "$TE_WS_CUTLASS_SOURCE/include"
-cp -a "$TE_WS_CUTLASS_SOURCE/." "$root/3rdparty/cutlass/"
+if [[ ! -d "$root/3rdparty/cutlass/include" ]]; then
+    cp -a "$TE_WS_CUTLASS_SOURCE/." "$root/3rdparty/cutlass/"
+fi
 export MAX_JOBS="${SLURM_CPUS_PER_TASK:-8}" NVTE_BUILD_MAX_JOBS="${SLURM_CPUS_PER_TASK:-8}"
 export NVTE_BUILD_THREADS_PER_JOB=1
 export CUDNN_PATH="${VIRTUAL_ENV:?}/lib/python3.12/site-packages/nvidia/cudnn"
