@@ -11,6 +11,7 @@ set -euo pipefail
 : "${TE_WS_BOOTSTRAP:?Set the existing environment bootstrap}"
 : "${TE_WS_OUTPUT:?Set an output directory outside the checkout}"
 : "${TE_WS_BASE_TREE:?Set the retained pre-fix TE build}"
+: "${TE_WS_CUTLASS_SOURCE:?Set the existing pinned CUTLASS checkout}"
 root=$(git rev-parse --show-toplevel)
 test "$(git rev-parse HEAD)" = "$TE_WS_EXPECT_REVISION"
 test -z "$(git status --porcelain)"
@@ -32,17 +33,20 @@ sha256sum transformer_engine/common/gemm/cublaslt_gemm.cu tests/pytorch/test_gem
 
 # A separate process makes a failed capture in the old core harmless to the candidate.
 set +e
+(
+cd "$TE_WS_OUTPUT"
 PYTHONPATH="$TE_WS_BASE_TREE" "$PY" -m pytest -q --tb=short \
     "$root/tests/pytorch/test_gemm_workspace.py::test_grouped_gemm_exception_joins_helper_streams" \
     --junitxml="$TE_WS_OUTPUT/baseline.xml" > "$TE_WS_OUTPUT/baseline.out" 2>&1
+)
 baseline_status=$?
 set -e
 printf '%s\n' "$baseline_status" > "$TE_WS_OUTPUT/baseline.exit"
 
 # Reuse the previously fetched dependency at the same submodule revision.
 # No package is installed into the environment.
-test -d "$TE_WS_BASE_TREE/3rdparty/cutlass/include"
-cp -a "$TE_WS_BASE_TREE/3rdparty/cutlass/." "$root/3rdparty/cutlass/"
+test -d "$TE_WS_CUTLASS_SOURCE/include"
+cp -a "$TE_WS_CUTLASS_SOURCE/." "$root/3rdparty/cutlass/"
 export MAX_JOBS="${SLURM_CPUS_PER_TASK:-8}" NVTE_BUILD_MAX_JOBS="${SLURM_CPUS_PER_TASK:-8}"
 export NVTE_BUILD_THREADS_PER_JOB=1
 export CUDNN_PATH="${VIRTUAL_ENV:?}/lib/python3.12/site-packages/nvidia/cudnn"
